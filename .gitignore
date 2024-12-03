@@ -8,6 +8,16 @@
 *.so
 *.dylib
 
+# IDE
+.idea/
+
+# Taskfile
+.task/
+
+# Generated files
+/generated/*
+/certs/*
+
 # Test binary, built with `go test -c`
 *.test
 
