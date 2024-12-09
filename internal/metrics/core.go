@@ -1,19 +1,21 @@
 package metrics
 
 import (
+	"go.uber.org/zap"
 	"runtime"
 	"time"
 
-	observability "github.com/goletan/observability/pkg"
+	"github.com/goletan/observability/shared/logger"
+	"github.com/goletan/security/shared/scrubber"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type CoreMetrics struct {
-	obs *observability.Observability
-}
+type Metrics struct{}
 
-// Application Metrics: Track application related metrics
 var (
+
+	// AppErrorCount is a Prometheus CounterVec that tracks the total count of errors encountered by the application.
+	// It uses labels—type, service, and context—to differentiate error occurrences.
 	AppErrorCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "goletan",
@@ -23,29 +25,39 @@ var (
 		},
 		[]string{"type", "service", "context"},
 	)
+
+	// MemoryUsage is a Prometheus Gauge that tracks the current memory usage in bytes.
 	MemoryUsage = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "goletan",
 		Subsystem: "runtime",
 		Name:      "memory_usage_bytes",
 		Help:      "Current memory usage in bytes.",
 	})
+
+	// GoroutinesCount is a Prometheus Gauge that tracks the number of goroutines currently running.
 	GoroutinesCount = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "goletan",
 		Subsystem: "runtime",
 		Name:      "goroutines_count",
 		Help:      "Number of goroutines currently running.",
 	})
-	scrubber = observability.NewScrubber()
+
+	// scrub is an instance of Scrubber initialized with default patterns for sanitizing sensitive information.
+	scrub = scrubber.NewScrubber()
 )
 
-func InitMetrics(obs *observability.Observability) *CoreMetrics {
-	metrics := &CoreMetrics{obs: obs}
-	metrics.Register()
+func InitMetrics(log *logger.ZapLogger) *Metrics {
+	metrics := &Metrics{}
+	err := metrics.Register()
+
+	if err != nil {
+		log.Error("Cannot register metrics", zap.Error(err))
+	}
 
 	return metrics
 }
 
-func (cbm *CoreMetrics) Register() error {
+func (cbm *Metrics) Register() error {
 	if err := prometheus.Register(AppErrorCount); err != nil {
 		return err
 	}
@@ -57,14 +69,15 @@ func (cbm *CoreMetrics) Register() error {
 	if err := prometheus.Register(GoroutinesCount); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 // IncrementErrorCount increments the error counter based on error type, service, and context.
 func IncrementErrorCount(errorType, service, context string) {
-	scrubbedErrorType := scrubber.Scrub(errorType)
-	scrubbedService := scrubber.Scrub(service)
-	scrubbedContext := scrubber.Scrub(context)
+	scrubbedErrorType := scrub.Scrub(errorType)
+	scrubbedService := scrub.Scrub(service)
+	scrubbedContext := scrub.Scrub(context)
 	AppErrorCount.WithLabelValues(scrubbedErrorType, scrubbedService, scrubbedContext).Inc()
 }
 

@@ -2,46 +2,41 @@ package core
 
 import (
 	"context"
-	"github.com/goletan/observability"
-	"github.com/goletan/security/config"
-	services "github.com/goletan/services/pkg"
-
-	"go.uber.org/zap"
+	"core/internal/types"
+	"github.com/goletan/observability/pkg"
+	"github.com/goletan/services/pkg"
 )
 
 type Core struct {
-	Config        *CoreConfig
+	Config        *types.CoreConfig
 	Observability *observability.Observability
-	Services      *services.Service
+	Services      *services.Services
 }
 
 // NewCore initializes the Core with essential components.
 func NewCore(obs *observability.Observability) (*Core, error) {
-	cfg, err := LoadCoreConfig(logger)
+	cfg, err := LoadCoreConfig(obs.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	srv, err := services.NewServices(obs)
-	if err != nil {
-		return nil, err
-	}
+	newServices := services.NewServices(obs)
 
 	return &Core{
 		Config:        cfg,
 		Observability: obs,
-		Services:      srv,
+		Services:      newServices,
 	}, nil
 }
 
 // Start launches the Core's core components.
 func (c *Core) Start(ctx context.Context) error {
-	c.Observability.Logger.Info("Starting Core...")
-	return c.Services.Start(ctx)
+	c.Observability.Logger.Info("Starting Services...")
+	return c.Services.StartAll(ctx)
 }
 
 // Shutdown gracefully stops the Core's components.
 func (c *Core) Shutdown(ctx context.Context) error {
-	c.Observability.Info("Shutting down Core...")
-	return c.Services.Stop(ctx)
+	c.Observability.Logger.Info("Shutting down Services...")
+	return c.Services.StopAll(ctx)
 }

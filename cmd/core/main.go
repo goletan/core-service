@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"core/internal/core"
-
-	"github.com/goletan/observability"
-	"go.uber.org/zap"
+	"github.com/goletan/observability/pkg"
 )
 
 func main() {
@@ -22,4 +20,8 @@ func main() {
 		panic(err)
 	}
 
+	obs.Logger.Info("Core is running...")
+
+	<-ctx.Done()
+	obs.Logger.Info("Core is shutting down...")
 }
