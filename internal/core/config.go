@@ -3,8 +3,8 @@ package core
 import (
 	"core/internal/types"
 	"github.com/goletan/config/pkg"
+	"github.com/goletan/observability/internal/logger"
 	obsCfg "github.com/goletan/observability/shared/config"
-	"github.com/goletan/observability/shared/logger"
 	"go.uber.org/zap"
 )
 

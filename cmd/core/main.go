@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"core/internal/core"
 	"fmt"
 	"github.com/goletan/observability/shared/errors"
-	"github.com/goletan/observability/shared/logger"
 	services "github.com/goletan/services/pkg"
 	"github.com/goletan/services/shared/types"
 	"go.uber.org/zap"
@@ -31,19 +29,8 @@ func main() {
 		cancel() // Trigger shutdown
 	}()
 
-	zapLogger, err := logger.NewLogger()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Load configuration
-	obsConfig, err := core.LoadObservabilityConfig(zapLogger)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// Initialize Observability
-	obs, err := observability.NewObserver(obsConfig, zapLogger)
+	obs, err := observability.NewObserver()
 	if err != nil {
 		log.Fatal(err)
 	}
