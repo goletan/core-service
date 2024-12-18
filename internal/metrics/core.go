@@ -1,11 +1,11 @@
 package metrics
 
 import (
-	observability "github.com/goletan/observability/pkg"
 	"go.uber.org/zap"
 	"runtime"
 	"time"
 
+	observability "github.com/goletan/observability/pkg"
 	"github.com/goletan/security/shared/scrubber"
 	"github.com/prometheus/client_golang/prometheus"
 )
