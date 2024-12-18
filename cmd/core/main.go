@@ -2,10 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"github.com/goletan/observability/shared/errors"
-	services "github.com/goletan/services/pkg"
-	"github.com/goletan/services/shared/types"
+	"core/internal/core"
 	"go.uber.org/zap"
 	"log"
 	"os"
@@ -17,107 +14,61 @@ import (
 
 func main() {
 	// Context for graceful shutdown
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+	defer shutdownCancel()
 
 	// Set up signal handling for shutdown
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	setupSignalHandler(shutdownCancel)
 
-	go func() {
-		<-signalChan
-		cancel() // Trigger shutdown
-	}()
+	// Initialize observability
+	obs := initializeObservability()
+	obs.Logger.Info("Core Initializing...")
 
-	// Initialize Observability
-	obs, err := observability.NewObserver()
+	// Set up core and services
+	newCore, err := core.NewCore(obs)
 	if err != nil {
-		log.Fatal(err)
+		obs.Logger.Fatal("Failed to initialize core", zap.Error(err))
+	}
+	if newCore == nil {
+		obs.Logger.Fatal("Failed to initialize core", zap.Error(err))
 	}
 
-	obs.Logger.Info("Core Service initializing...")
-
-	// Initialize Services.
-	serviceManager := services.NewServices(obs)
-
-	// Create a static service
-	staticService := NewStaticService("TestService", []types.ServiceEndpoint{
-		{
-			Name:    "TestServiceEndpoint",
-			Address: "localhost:8080",
-			Ports: []types.ServicePort{
-				{Name: "http", Port: 8080, Protocol: "TCP"},
-			},
-			Version: "v1.0",
-			Tags:    []string{"testing", "static"},
-		},
-	})
-
-	// Register services.
-	err = serviceManager.Registry.Register(staticService)
-	if err != nil {
-		obs.Logger.Fatal("Failed to register services", zap.Error(err))
-	}
-
-	// Start services.
-	if err := serviceManager.InitializeAll(ctx); err != nil {
-		obs.Logger.Error("Failed to initialize services", zap.Error(err))
-	}
-	if err := serviceManager.StartAll(ctx); err != nil {
-		obs.Logger.Fatal("Failed to start services", zap.Error(err))
-	}
-
+	// Initialize and start services
+	initializeAndStartServices(shutdownCtx, newCore, obs)
+	
+	// Wait for shutdown signal
 	obs.Logger.Info("Core Service is running...")
-	<-ctx.Done() // Wait for shutdown signal
-
+	<-shutdownCtx.Done()
 	obs.Logger.Info("Core Service shutting down...")
 }
 
-// StaticService is a simple implementation of the Service interface for testing.
-type StaticService struct {
-	name      string
-	endpoints []types.ServiceEndpoint
+// setupSignalHandler configures OS signal handling for graceful shutdown.
+func setupSignalHandler(cancelFunc context.CancelFunc) {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signalChan
+		cancelFunc() // Trigger shutdown
+	}()
 }
 
-// NewStaticService creates a new instance of StaticService.
-func NewStaticService(name string, endpoints []types.ServiceEndpoint) *StaticService {
-	return &StaticService{
-		name:      name,
-		endpoints: endpoints,
+// initializeObservability initializes the observability components (logger, metrics, tracing).
+func initializeObservability() *observability.Observability {
+	obs, err := observability.NewObserver()
+	if err != nil {
+		log.Fatal("Failed to initialize observability", err)
 	}
+	return obs
 }
 
-// Name returns the name of the service.
-func (s *StaticService) Name() string {
-	return s.name
-}
-
-// Initialize prepares the service for startup.
-func (s *StaticService) Initialize() error {
-	fmt.Printf("[%s] Initializing...\n", s.name)
-	// Simulate initialization (e.g., loading configuration)
-	return nil
-}
-
-// Start starts the service.
-func (s *StaticService) Start() error {
-	fmt.Printf("[%s] Starting...\n", s.name)
-	// Simulate service logic startup
-	return nil
-}
-
-// Stop stops the service.
-func (s *StaticService) Stop() error {
-	fmt.Printf("[%s] Stopping...\n", s.name)
-	// Simulate cleanup tasks
-	return nil
-}
-
-// Discover simulates the discovery of service endpoints.
-func (s *StaticService) Discover(log *logger.ZapLogger) ([]types.ServiceEndpoint, error) {
-	if len(s.endpoints) == 0 {
-		return nil, errors.NewError(log, "No endpoints found", 1001, nil)
+// initializeAndStartServices initializes and starts all services via the Core object.
+func initializeAndStartServices(ctx context.Context, core *core.Core, obs *observability.Observability) {
+	obs.Logger.Info("Services are initializing...")
+	if err := core.Services.InitializeAll(ctx); err != nil {
+		obs.Logger.Fatal("Failed to initialize services", zap.Error(err))
 	}
-
-	return s.endpoints, nil
+	obs.Logger.Info("Services are starting...")
+	if err := core.Services.StartAll(ctx); err != nil {
+		obs.Logger.Fatal("Failed to start services", zap.Error(err))
+	}
 }

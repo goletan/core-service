@@ -1,11 +1,11 @@
 package metrics
 
 import (
+	observability "github.com/goletan/observability/pkg"
 	"go.uber.org/zap"
 	"runtime"
 	"time"
 
-	"github.com/goletan/observability/internal/logger"
 	"github.com/goletan/security/shared/scrubber"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -46,12 +46,12 @@ var (
 	scrub = scrubber.NewScrubber()
 )
 
-func InitMetrics(log *logger.ZapLogger) *Metrics {
+func InitMetrics(obs *observability.Observability) *Metrics {
 	metrics := &Metrics{}
 	err := metrics.Register()
 
 	if err != nil {
-		log.Error("Cannot register metrics", zap.Error(err))
+		obs.Logger.Error("Cannot register metrics", zap.Error(err))
 	}
 
 	return metrics

@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"core/internal/metrics"
 	"core/internal/types"
 	"github.com/goletan/observability/pkg"
 	"github.com/goletan/services/pkg"
@@ -15,10 +16,12 @@ type Core struct {
 
 // NewCore initializes the Core with essential components.
 func NewCore(obs *observability.Observability) (*Core, error) {
-	cfg, err := LoadCoreConfig(obs.Logger)
+	cfg, err := LoadCoreConfig(obs)
 	if err != nil {
 		return nil, err
 	}
+
+	metrics.InitMetrics(obs)
 
 	newServices := services.NewServices(obs)
 
