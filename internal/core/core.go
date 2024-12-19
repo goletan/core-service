@@ -5,6 +5,7 @@ import (
 	"core/internal/types"
 	observability "github.com/goletan/observability/pkg"
 	services "github.com/goletan/services/pkg"
+	"go.uber.org/zap"
 	"log"
 )
 
@@ -15,7 +16,7 @@ type Core struct {
 }
 
 // NewCore initializes the Core with essential components.
-func NewCore() (*Core, error) {
+func NewCore(ctx context.Context) (*Core, error) {
 	obs := initializeObservability()
 	obs.Logger.Info("Core Initializing...")
 
@@ -24,7 +25,7 @@ func NewCore() (*Core, error) {
 		return nil, err
 	}
 
-	newServices := services.NewServices(obs)
+	newServices := services.NewServices(obs) // Pass context to Services
 
 	return &Core{
 		Config:   cfg,
@@ -42,7 +43,14 @@ func (c *Core) Start(ctx context.Context) error {
 // Shutdown gracefully stops the Core's components.
 func (c *Core) Shutdown(ctx context.Context) error {
 	c.Obs.Logger.Info("Shutting down Services...")
-	return c.Services.StopAll(ctx)
+
+	if err := c.Services.StopAll(ctx); err != nil {
+		c.Obs.Logger.Error("Error during shutdown", zap.Error(err))
+		return err
+	}
+
+	c.Obs.Logger.Info("All Services shut down successfully.")
+	return nil
 }
 
 // initializeObservability initializes the observability components (logger, metrics, tracing).

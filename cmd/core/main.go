@@ -18,7 +18,7 @@ func main() {
 	setupSignalHandler(shutdownCancel)
 
 	// Set up core and services
-	newCore, err := core.NewCore()
+	newCore, err := core.NewCore(shutdownCtx)
 	if err != nil || newCore == nil {
 		panic("Failed to create core")
 	}
@@ -48,6 +48,7 @@ func initializeAndStartServices(ctx context.Context, core *core.Core) {
 	if err := core.Services.InitializeAll(ctx); err != nil {
 		core.Obs.Logger.Fatal("Failed to initialize services", zap.Error(err))
 	}
+
 	core.Obs.Logger.Info("Services are starting...")
 	if err := core.Services.StartAll(ctx); err != nil {
 		core.Obs.Logger.Fatal("Failed to start services", zap.Error(err))
