@@ -27,9 +27,9 @@ func main() {
 	initializeAndStartServices(shutdownCtx, newCore)
 
 	// Wait for shutdown signal
-	newCore.Obs.Logger.Info("Core Service is running...")
+	newCore.Observability.Logger.Info("Core Service is running...")
 	<-shutdownCtx.Done()
-	newCore.Obs.Logger.Info("Core Service shutting down...")
+	newCore.Observability.Logger.Info("Core Service shutting down...")
 }
 
 // setupSignalHandler configures OS signal handling for graceful shutdown.
@@ -44,13 +44,13 @@ func setupSignalHandler(cancelFunc context.CancelFunc) {
 
 // initializeAndStartServices initializes and starts all services via the Core object.
 func initializeAndStartServices(ctx context.Context, core *core.Core) {
-	core.Obs.Logger.Info("Services are initializing...")
+	core.Observability.Logger.Info("Services are initializing...")
 	if err := core.Services.InitializeAll(ctx); err != nil {
-		core.Obs.Logger.Fatal("Failed to initialize services", zap.Error(err))
+		core.Observability.Logger.Fatal("Failed to initialize services", zap.Error(err))
 	}
 
-	core.Obs.Logger.Info("Services are starting...")
+	core.Observability.Logger.Info("Services are starting...")
 	if err := core.Services.StartAll(ctx); err != nil {
-		core.Obs.Logger.Fatal("Failed to start services", zap.Error(err))
+		core.Observability.Logger.Fatal("Failed to start services", zap.Error(err))
 	}
 }
