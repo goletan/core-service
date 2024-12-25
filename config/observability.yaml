@@ -9,6 +9,6 @@ logger:
   log_level: "INFO"
 
 tracing:
-  service_name: "Goletan Core"
+  service_name: "Goletan Kernel"
   exporter: ""
   sampling_ratio: 3.14

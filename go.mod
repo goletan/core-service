@@ -1,4 +1,4 @@
-module github.com/goletan/core-service
+module github.com/goletan/kernel-service
 
 go 1.23
 

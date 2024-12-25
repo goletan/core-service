@@ -1,5 +1,5 @@
 package types
 
-type CoreConfig struct {
+type KernelConfig struct {
 	ServiceName string `mapstructure:"service_name"`
 }
