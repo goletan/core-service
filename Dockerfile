@@ -1,10 +1,7 @@
-# Use the latest Go base image
+# Build Stage
 FROM golang:1.23 AS builder
-
-# Set working directory
 WORKDIR /app
 
-# Copy go.work and all referenced directories
 COPY go.work .
 COPY kernel-service ./kernel-service
 COPY config-library ./config-library
@@ -14,17 +11,21 @@ COPY resilience-library ./resilience-library
 COPY security-library ./security-library
 COPY services-library ./services-library
 
-# Sync Go work dependencies
 RUN go work sync
+RUN CGO_ENABLED=0 GOOS=linux go build -o kernel-service kernel-service/cmd/kernel/main.go
 
-# Build the kernel-service service
-RUN go build -o kernel-service kernel-service/cmd/kernel/main.go
+# Debug Stage
+FROM debian:bullseye AS debug
+WORKDIR /app
+COPY --from=builder /app/kernel-service .
+RUN chmod +x kernel-service
 
-# Use a lightweight base image for the runtime
-FROM gcr.io/distroless/base-debian11
+# Validate the binary in the debug-friendly container
+RUN ./kernel-service --help || true
 
-# Copy the built binary
-COPY --from=builder /app/kernel /kernel
-
-# Set the entry point
-ENTRYPOINT ["/kernel"]
+# Runtime Stage
+FROM gcr.io/distroless/static:nonroot AS runtime
+WORKDIR /app/
+COPY --from=builder /app/kernel-service .
+USER nonroot:nonroot
+ENTRYPOINT ["./kernel-service"]
