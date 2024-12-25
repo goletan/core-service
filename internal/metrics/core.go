@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	observability "github.com/goletan/observability/pkg"
+	observability "github.com/goletan/observability-library/pkg"
 	"github.com/goletan/security/shared/scrubber"
 	"github.com/prometheus/client_golang/prometheus"
 )

@@ -3,11 +3,11 @@ package core
 import (
 	"context"
 	"core/internal/types"
-	observability "github.com/goletan/observability/pkg"
-	resilience "github.com/goletan/resilience/pkg"
-	resTypes "github.com/goletan/resilience/shared/types"
-	services "github.com/goletan/services/pkg"
-	serTypes "github.com/goletan/services/shared/types"
+	observability "github.com/goletan/observability-library/pkg"
+	resilience "github.com/goletan/resilience-library/pkg"
+	resTypes "github.com/goletan/resilience-library/shared/types"
+	services "github.com/goletan/services-library/pkg"
+	serTypes "github.com/goletan/services-library/shared/types"
 	"github.com/sony/gobreaker/v2"
 	"go.uber.org/zap"
 	"log"
@@ -31,7 +31,7 @@ func NewCore(ctx context.Context) (*Core, error) {
 	}
 
 	res := resilience.NewResilienceService(
-		"core",
+		"core-service",
 		obs,
 		func(err error) bool { return true }, // Retry on all errors
 		&resTypes.CircuitBreakerCallbacks{
@@ -46,7 +46,7 @@ func NewCore(ctx context.Context) (*Core, error) {
 
 	newServices, err := services.NewServices(obs)
 	if err != nil {
-		obs.Logger.Error("Failed to initialize services", zap.Error(err))
+		obs.Logger.Error("Failed to initialize services-library", zap.Error(err))
 		return nil, err
 	}
 
@@ -58,7 +58,7 @@ func NewCore(ctx context.Context) (*Core, error) {
 	}, nil
 }
 
-// Start launches the Core's core components and begins service discovery.
+// Start launches the Core's core-service components and begins service discovery.
 func (c *Core) Start(ctx context.Context) error {
 	c.Observability.Logger.Info("Starting initial service orchestration...")
 	orchestrateServices(ctx, c)
@@ -73,12 +73,12 @@ func (c *Core) Start(ctx context.Context) error {
 func (c *Core) Shutdown(ctx context.Context) error {
 	c.Observability.Logger.Info("Shutting down Services...")
 	if err := c.Services.StopAll(ctx); err != nil {
-		c.Observability.Logger.Error("Failed to stop services", zap.Error(err))
+		c.Observability.Logger.Error("Failed to stop services-library", zap.Error(err))
 	}
 
 	c.Observability.Logger.Info("Shutting down Resilience...")
 	if err := c.Resilience.Shutdown(&ctx); err != nil {
-		c.Observability.Logger.Error("Failed to shut down resilience", zap.Error(err))
+		c.Observability.Logger.Error("Failed to shut down resilience-library", zap.Error(err))
 		return err
 	}
 
@@ -86,7 +86,7 @@ func (c *Core) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-// startServiceWatcher listens for service events and dynamically updates the service registry.
+// startServiceWatcher listens for service events-service and dynamically updates the service registry.
 func (c *Core) startServiceWatcher(ctx context.Context) {
 	eventCh, err := c.Services.Watch(ctx, "default-namespace")
 	if err != nil {
@@ -144,20 +144,20 @@ func (c *Core) handleServiceAdded(endpoint serTypes.ServiceEndpoint) {
 // handleServiceDeleted dynamically removes a service from the registry.
 func (c *Core) handleServiceDeleted(endpoint serTypes.ServiceEndpoint) {
 	c.Observability.Logger.Info("Removing service", zap.String("name", endpoint.Name), zap.String("address", endpoint.Address))
-	// Implementation for stopping and unregistering services if needed
+	// Implementation for stopping and unregistering services-library if needed
 }
 
 // handleServiceModified handles updates to an existing service.
 func (c *Core) handleServiceModified(endpoint serTypes.ServiceEndpoint) {
 	c.Observability.Logger.Info("Modifying service", zap.String("name", endpoint.Name), zap.String("address", endpoint.Address))
-	// Implementation for updating services dynamically
+	// Implementation for updating services-library dynamically
 }
 
-// initializeObservability initializes the observability components (logger, metrics, tracing).
+// initializeObservability initializes the observability-library components (logger-library, metrics, tracing).
 func initializeObservability() *observability.Observability {
 	obs, err := observability.NewObserver()
 	if err != nil {
-		log.Fatal("Failed to initialize observability", err)
+		log.Fatal("Failed to initialize observability-library", err)
 	}
 	return obs
 }

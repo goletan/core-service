@@ -17,13 +17,13 @@ func main() {
 	// Set up signal handling for shutdown
 	setupSignalHandler(shutdownCancel)
 
-	// Set up core and services
+	// Set up core-service and services-library
 	newCore, err := core.NewCore(shutdownCtx)
 	if err != nil || newCore == nil {
-		panic("Failed to create core")
+		panic("Failed to create core-service")
 	}
 
-	// Initialize and start services
+	// Initialize and start services-library
 	initializeAndStartServices(shutdownCtx, newCore)
 
 	// Wait for shutdown signal
@@ -42,15 +42,15 @@ func setupSignalHandler(cancelFunc context.CancelFunc) {
 	}()
 }
 
-// initializeAndStartServices initializes and starts all services via the Core object.
+// initializeAndStartServices initializes and starts all services-library via the Core object.
 func initializeAndStartServices(ctx context.Context, core *core.Core) {
 	core.Observability.Logger.Info("Services are initializing...")
 	if err := core.Services.InitializeAll(ctx); err != nil {
-		core.Observability.Logger.Fatal("Failed to initialize services", zap.Error(err))
+		core.Observability.Logger.Fatal("Failed to initialize services-library", zap.Error(err))
 	}
 
 	core.Observability.Logger.Info("Services are starting...")
 	if err := core.Services.StartAll(ctx); err != nil {
-		core.Observability.Logger.Fatal("Failed to start services", zap.Error(err))
+		core.Observability.Logger.Fatal("Failed to start services-library", zap.Error(err))
 	}
 }

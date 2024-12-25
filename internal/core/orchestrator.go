@@ -2,23 +2,23 @@ package core
 
 import (
 	"context"
-	servicesTypes "github.com/goletan/services/shared/types"
+	servicesTypes "github.com/goletan/services-library/shared/types"
 	"go.uber.org/zap"
 )
 
-// orchestrateServices performs initial discovery and setup of services.
+// orchestrateServices performs initial discovery and setup of services-library.
 func orchestrateServices(ctx context.Context, core *Core) {
 	namespace := "goletan"
 	core.Observability.Logger.Info("Performing initial service discovery...", zap.String("namespace", namespace))
 
-	// Discover services
+	// Discover services-library
 	endpoints, err := discoverServices(ctx, core, namespace)
 	if err != nil {
 		core.Observability.Logger.Error("Initial service discovery failed", zap.Error(err))
 		return
 	}
 
-	// Initialize and start services
+	// Initialize and start services-library
 	for _, endpoint := range endpoints {
 		initializeAndStartService(ctx, core, endpoint)
 	}
@@ -26,7 +26,7 @@ func orchestrateServices(ctx context.Context, core *Core) {
 	core.Observability.Logger.Info("Initial service discovery and orchestration completed")
 }
 
-// discoverServices performs a one-time discovery of available services in the namespace.
+// discoverServices performs a one-time discovery of available services-library in the namespace.
 func discoverServices(ctx context.Context, core *Core, namespace string) ([]servicesTypes.ServiceEndpoint, error) {
 	var endpoints []servicesTypes.ServiceEndpoint
 
@@ -39,7 +39,7 @@ func discoverServices(ctx context.Context, core *Core, namespace string) ([]serv
 		return nil, err
 	}
 
-	core.Observability.Logger.Info("Discovered initial services",
+	core.Observability.Logger.Info("Discovered initial services-library",
 		zap.Int("count", len(endpoints)))
 	return endpoints, nil
 }
