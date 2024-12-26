@@ -1,8 +1,8 @@
-package kernel
+package core
 
 import (
 	"context"
-	"github.com/goletan/kernel-service/internal/types"
+	"github.com/goletan/core-service/internal/types"
 	observability "github.com/goletan/observability-library/pkg"
 	resilience "github.com/goletan/resilience-library/pkg"
 	resTypes "github.com/goletan/resilience-library/shared/types"
@@ -13,17 +13,17 @@ import (
 	"log"
 )
 
-type Kernel struct {
-	Config        *types.KernelConfig
+type Core struct {
+	Config        *types.CoreConfig
 	Observability *observability.Observability
 	Resilience    *resilience.DefaultResilienceService
 	Services      *services.Services
 }
 
-// NewKernel initializes the Kernel with essential components.
-func NewKernel(ctx context.Context) (*Kernel, error) {
+// NewCore initializes the core with essential components.
+func NewCore(ctx context.Context) (*Core, error) {
 	obs := initializeObservability()
-	obs.Logger.Info("Kernel Initializing...")
+	obs.Logger.Info("core Initializing...")
 
 	cfg, err := LoadCoreConfig(obs.Logger)
 	if err != nil {
@@ -31,7 +31,7 @@ func NewKernel(ctx context.Context) (*Kernel, error) {
 	}
 
 	res := resilience.NewResilienceService(
-		"kernel-service",
+		"core-service",
 		obs,
 		func(err error) bool { return true }, // Retry on all errors
 		&resTypes.CircuitBreakerCallbacks{
@@ -50,7 +50,7 @@ func NewKernel(ctx context.Context) (*Kernel, error) {
 		return nil, err
 	}
 
-	return &Kernel{
+	return &Core{
 		Config:        cfg,
 		Observability: obs,
 		Resilience:    res,
@@ -58,19 +58,19 @@ func NewKernel(ctx context.Context) (*Kernel, error) {
 	}, nil
 }
 
-// Start launches the Kernel's kernel-service components and begins service discovery.
-func (k *Kernel) Start(ctx context.Context) error {
-	k.Observability.Logger.Info("Starting initial service orchestration...")
-	orchestrateServices(ctx, k)
+// Start launches the core's core-service components and begins service discovery.
+func (c *Core) Start(ctx context.Context) error {
+	c.Observability.Logger.Info("Starting initial service orchestration...")
+	orchestrateServices(ctx, c)
 
-	k.Observability.Logger.Info("Starting service discovery and event handling...")
-	go k.startServiceWatcher(ctx)
+	c.Observability.Logger.Info("Starting service discovery and event handling...")
+	go c.startServiceWatcher(ctx)
 
 	return nil
 }
 
-// Shutdown gracefully stops the Kernel's components.
-func (k *Kernel) Shutdown(ctx context.Context) error {
+// Shutdown gracefully stops the core's components.
+func (k *Core) Shutdown(ctx context.Context) error {
 	k.Observability.Logger.Info("Shutting down Services...")
 	if err := k.Services.StopAll(ctx); err != nil {
 		k.Observability.Logger.Error("Failed to stop services-library", zap.Error(err))
@@ -82,12 +82,12 @@ func (k *Kernel) Shutdown(ctx context.Context) error {
 		return err
 	}
 
-	k.Observability.Logger.Info("Kernel shut down successfully")
+	k.Observability.Logger.Info("core shut down successfully")
 	return nil
 }
 
 // startServiceWatcher listens for service events-service and dynamically updates the service registry.
-func (k *Kernel) startServiceWatcher(ctx context.Context) {
+func (k *Core) startServiceWatcher(ctx context.Context) {
 	eventCh, err := k.Services.Watch(ctx, "default-namespace")
 	if err != nil {
 		k.Observability.Logger.Fatal("Failed to start service watcher", zap.Error(err))
@@ -118,7 +118,7 @@ func (k *Kernel) startServiceWatcher(ctx context.Context) {
 }
 
 // handleServiceAdded dynamically registers and initializes a new service.
-func (k *Kernel) handleServiceAdded(endpoint serTypes.ServiceEndpoint) {
+func (k *Core) handleServiceAdded(endpoint serTypes.ServiceEndpoint) {
 	k.Observability.Logger.Info("Adding service", zap.String("name", endpoint.Name), zap.String("address", endpoint.Address))
 	service, err := k.Services.CreateService(endpoint)
 	if err != nil {
@@ -142,13 +142,13 @@ func (k *Kernel) handleServiceAdded(endpoint serTypes.ServiceEndpoint) {
 }
 
 // handleServiceDeleted dynamically removes a service from the registry.
-func (k *Kernel) handleServiceDeleted(endpoint serTypes.ServiceEndpoint) {
+func (k *Core) handleServiceDeleted(endpoint serTypes.ServiceEndpoint) {
 	k.Observability.Logger.Info("Removing service", zap.String("name", endpoint.Name), zap.String("address", endpoint.Address))
 	// Implementation for stopping and unregistering services-library if needed
 }
 
 // handleServiceModified handles updates to an existing service.
-func (k *Kernel) handleServiceModified(endpoint serTypes.ServiceEndpoint) {
+func (k *Core) handleServiceModified(endpoint serTypes.ServiceEndpoint) {
 	k.Observability.Logger.Info("Modifying service", zap.String("name", endpoint.Name), zap.String("address", endpoint.Address))
 	// Implementation for updating services-library dynamically
 }
