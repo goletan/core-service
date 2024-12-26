@@ -26,6 +26,15 @@ func main() {
 	// Initialize and start services-library
 	initializeAndStartServices(shutdownCtx, newCore)
 
+	serviceEndpoints, err := newCore.Services.Discover(shutdownCtx, "goletan")
+	if err != nil {
+		return
+	}
+
+	for _, endpoint := range serviceEndpoints {
+		newCore.Observability.Logger.Info("Service: " + endpoint.Name + " " + endpoint.Address + " discovered")
+	}
+
 	// Wait for shutdown signal
 	newCore.Observability.Logger.Info("core Service is running...")
 	<-shutdownCtx.Done()
