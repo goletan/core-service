@@ -1,6 +1,9 @@
 # Observability Config
 environment: "dev"
 
+metrics:
+  address: ":2112"
+
 bulkhead:
   capacity: 1
   timeout: 5s

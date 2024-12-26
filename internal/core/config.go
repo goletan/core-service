@@ -11,7 +11,7 @@ import (
 // It returns an error if the configuration cannot be loaded.
 func LoadCoreConfig(log *logger.ZapLogger) (*types.CoreConfig, error) {
 	var cfg types.CoreConfig
-	if err := config.LoadConfig("core", &cfg, log); err != nil {
+	if err := config.LoadConfig("Core", &cfg, log); err != nil {
 		log.Error("Failed to load core-service configuration", zap.Error(err))
 		return nil, err
 	}

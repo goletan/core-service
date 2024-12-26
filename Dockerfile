@@ -12,20 +12,17 @@ COPY security-library ./security-library
 COPY services-library ./services-library
 
 RUN go work sync
-RUN CGO_ENABLED=0 GOOS=linux go build -o core-service core-service/cmd/core/main.go
-
-# Debug Stage
-FROM debian:bullseye AS debug
-WORKDIR /app
-COPY --from=builder /app/core-service .
-RUN chmod +x core-service
-
-# Validate the binary in the debug-friendly container
-RUN ./core-service --help || true
+RUN CGO_ENABLED=0 GOOS=linux go build -o core core-service/cmd/core/main.go
 
 # Runtime Stage
 FROM gcr.io/distroless/static:nonroot AS runtime
-WORKDIR /app/
-COPY --from=builder /app/core-service .
+WORKDIR /app
+
+COPY --from=builder /app/core /app/core
+COPY core-service/config /app/config
+
 USER nonroot:nonroot
-ENTRYPOINT ["./core-service"]
+
+EXPOSE 8081 2112
+
+ENTRYPOINT ["/app/core"]
