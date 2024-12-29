@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -23,17 +24,7 @@ func main() {
 		panic("Failed to create core-service")
 	}
 
-	// Initialize and start services-library
 	initializeAndStartServices(shutdownCtx, newCore)
-
-	serviceEndpoints, err := newCore.Services.Discover(shutdownCtx, "goletan")
-	if err != nil {
-		return
-	}
-
-	for _, endpoint := range serviceEndpoints {
-		newCore.Observability.Logger.Info("Service: " + endpoint.Name + " " + endpoint.Address + " discovered")
-	}
 
 	// Wait for shutdown signal
 	newCore.Observability.Logger.Info("core Service is running...")
@@ -53,13 +44,29 @@ func setupSignalHandler(cancelFunc context.CancelFunc) {
 
 // initializeAndStartServices initializes and starts all services-library via the core object.
 func initializeAndStartServices(ctx context.Context, core *core.Core) {
+
+	serviceDiscoveryTimeout := 5 * time.Second
+	discoverCtx, discoverCancel := context.WithTimeout(ctx, serviceDiscoveryTimeout)
+	defer discoverCancel()
+
+	serviceEndpoints, err := core.Services.Discover(discoverCtx, "goletan_services_network")
+	if err != nil {
+		core.Observability.Logger.Warn("No services discovered on goletan_services_network", zap.Error(err))
+	} else {
+		for _, endpoint := range serviceEndpoints {
+			core.Observability.Logger.Info("Discovered service",
+				zap.String("name", endpoint.Name),
+				zap.String("address", endpoint.Address))
+		}
+	}
+
 	core.Observability.Logger.Info("Services are initializing...")
-	if err := core.Services.InitializeAll(ctx); err != nil {
+	if err := core.Services.InitializeAll(discoverCtx); err != nil {
 		core.Observability.Logger.Fatal("Failed to initialize services-library", zap.Error(err))
 	}
 
 	core.Observability.Logger.Info("Services are starting...")
-	if err := core.Services.StartAll(ctx); err != nil {
+	if err := core.Services.StartAll(discoverCtx); err != nil {
 		core.Observability.Logger.Fatal("Failed to start services-library", zap.Error(err))
 	}
 }

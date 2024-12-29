@@ -19,7 +19,7 @@ FROM gcr.io/distroless/static:nonroot AS runtime
 WORKDIR /app
 
 COPY --from=builder /app/core /app/core
-COPY core-service/config /app/config
+COPY --from=builder /app/core-service/config /app/config
 
 USER nonroot:nonroot
 
