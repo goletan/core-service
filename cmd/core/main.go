@@ -26,6 +26,13 @@ func main() {
 
 	initializeAndStartServices(shutdownCtx, newCore)
 
+	event, err := newCore.EventsClient.SendEvent(shutdownCtx, "test_event", "This is a test payload")
+	if err != nil {
+		newCore.Observability.Logger.Error("Failed to send event", zap.Error(err))
+		return
+	}
+	newCore.Observability.Logger.Info("Event processed successfully", zap.String("status", event))
+
 	// Wait for shutdown signal
 	newCore.Observability.Logger.Info("core Service is running...")
 	<-shutdownCtx.Done()
