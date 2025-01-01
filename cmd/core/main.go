@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/goletan/core-service/internal/core"
+	eventsTypes "github.com/goletan/events-library/shared/types"
 	"go.uber.org/zap"
 	"os"
 	"os/signal"
@@ -26,12 +27,16 @@ func main() {
 
 	initializeAndStartServices(shutdownCtx, newCore)
 
-	event, err := newCore.EventsClient.SendEvent(shutdownCtx, "test_event", "This is a test payload")
+	event := &eventsTypes.Event{
+		Type:    "test_event_types",
+		Payload: "test_event_payload",
+	}
+
+	err = newCore.EventsClient.SendEvent(shutdownCtx, event)
 	if err != nil {
 		newCore.Observability.Logger.Error("Failed to send event", zap.Error(err))
 		return
 	}
-	newCore.Observability.Logger.Info("Event processed successfully", zap.String("status", event))
 
 	// Wait for shutdown signal
 	newCore.Observability.Logger.Info("core Service is running...")

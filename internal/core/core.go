@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 	"github.com/goletan/core-service/internal/types"
-	"github.com/goletan/events-service/client"
+	eventsLib "github.com/goletan/events-library/pkg"
 	observability "github.com/goletan/observability-library/pkg"
 	resilience "github.com/goletan/resilience-library/pkg"
 	resTypes "github.com/goletan/resilience-library/shared/types"
@@ -19,7 +19,7 @@ type Core struct {
 	Observability *observability.Observability
 	Resilience    *resilience.DefaultResilienceService
 	Services      *services.Services
-	EventsClient  *client.EventsClient
+	EventsClient  *eventsLib.EventsClient
 }
 
 // NewCore initializes the core with essential components.
@@ -60,7 +60,7 @@ func NewCore(ctx context.Context) (*Core, error) {
 		}
 	}
 
-	eventsClient, err := client.NewEventsClient(eventsServiceAddress, obs)
+	eventsClient, err := eventsLib.NewEventsClient(obs, eventsServiceAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -99,17 +99,6 @@ func (c *Core) Shutdown(ctx context.Context) error {
 	}
 
 	c.Observability.Logger.Info("core shut down successfully")
-	return nil
-}
-
-func (c *Core) DoSomethingAndSendEvent(ctx context.Context) error {
-	status, err := c.EventsClient.SendEvent(ctx, "test_event", "This is a test payload")
-	if err != nil {
-		c.Observability.Logger.Error("Failed to send event", zap.Error(err))
-		return err
-	}
-
-	c.Observability.Logger.Info("Event processed successfully", zap.String("status", status))
 	return nil
 }
 
