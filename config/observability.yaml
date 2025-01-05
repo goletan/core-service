@@ -13,5 +13,5 @@ logger:
 
 tracing:
   service_name: "Goletan core"
-  exporter: ""
+  exporter: "http://opentelemetry-collector.default:4317"
   sampling_ratio: 3.14

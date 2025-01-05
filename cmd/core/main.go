@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/goletan/core-service/internal/core"
 	eventsTypes "github.com/goletan/events-library/shared/types"
+	servicesTypes "github.com/goletan/services-library/shared/types"
 	"go.uber.org/zap"
 	"os"
 	"os/signal"
@@ -60,8 +61,14 @@ func initializeAndStartServices(ctx context.Context, core *core.Core) {
 	serviceDiscoveryTimeout := 5 * time.Second
 	discoverCtx, discoverCancel := context.WithTimeout(ctx, serviceDiscoveryTimeout)
 	defer discoverCancel()
+	filter := &servicesTypes.Filter{
+		Labels: map[string]string{
+			"app":  "goletan",
+			"type": "core",
+		},
+	}
 
-	serviceEndpoints, err := core.Services.Discover(discoverCtx, "goletan_services_network")
+	serviceEndpoints, err := core.Services.Discover(discoverCtx, filter)
 	if err != nil {
 		core.Observability.Logger.Warn("No services discovered on goletan_services_network", zap.Error(err))
 	} else {
@@ -69,6 +76,16 @@ func initializeAndStartServices(ctx context.Context, core *core.Core) {
 			core.Observability.Logger.Info("Discovered service",
 				zap.String("name", endpoint.Name),
 				zap.String("address", endpoint.Address))
+			service, err := core.Services.CreateService(endpoint)
+			if err != nil {
+				core.Observability.Logger.Error("Failed to create service", zap.String("name", endpoint.Name), zap.Error(err))
+				continue
+			}
+			err = core.Services.Register(service)
+			if err != nil {
+				core.Observability.Logger.Error("Failed to register service", zap.String("name", service.Name()), zap.Error(err))
+			}
+			core.Observability.Logger.Info("Registered service", zap.String("name", service.Name()))
 		}
 	}
 

@@ -8,7 +8,7 @@ import (
 	resilience "github.com/goletan/resilience-library/pkg"
 	resTypes "github.com/goletan/resilience-library/shared/types"
 	services "github.com/goletan/services-library/pkg"
-	serTypes "github.com/goletan/services-library/shared/types"
+	servicesTypes "github.com/goletan/services-library/shared/types"
 	"github.com/sony/gobreaker/v2"
 	"go.uber.org/zap"
 	"log"
@@ -52,8 +52,15 @@ func NewCore(ctx context.Context) (*Core, error) {
 		return nil, err
 	}
 
+	filter := &servicesTypes.Filter{
+		Labels: map[string]string{
+			"app":  "goletan",
+			"type": "core",
+		},
+	}
+
 	var eventsServiceAddress string
-	serviceEndpoints, err := newServices.Discover(ctx, "goletan_services_network")
+	serviceEndpoints, err := newServices.Discover(ctx, filter)
 	for _, endpoint := range serviceEndpoints {
 		if endpoint.Name == "goletan_events" {
 			eventsServiceAddress = endpoint.Address + ":50051"
@@ -104,7 +111,14 @@ func (c *Core) Shutdown(ctx context.Context) error {
 
 // startServiceWatcher listens for service events-service and dynamically updates the service registry.
 func (c *Core) startServiceWatcher(ctx context.Context) {
-	eventCh, err := c.Services.Watch(ctx, "default-namespace")
+	filter := &servicesTypes.Filter{
+		Labels: map[string]string{
+			"app":  "goletan",
+			"type": "core",
+		},
+	}
+
+	eventCh, err := c.Services.Watch(ctx, filter)
 	if err != nil {
 		c.Observability.Logger.Fatal("Failed to start service watcher", zap.Error(err))
 		return
@@ -134,7 +148,7 @@ func (c *Core) startServiceWatcher(ctx context.Context) {
 }
 
 // handleServiceAdded dynamically registers and initializes a new service.
-func (c *Core) handleServiceAdded(endpoint serTypes.ServiceEndpoint) {
+func (c *Core) handleServiceAdded(endpoint servicesTypes.ServiceEndpoint) {
 	c.Observability.Logger.Info("Adding service", zap.String("name", endpoint.Name), zap.String("address", endpoint.Address))
 	service, err := c.Services.CreateService(endpoint)
 	if err != nil {
@@ -158,13 +172,13 @@ func (c *Core) handleServiceAdded(endpoint serTypes.ServiceEndpoint) {
 }
 
 // handleServiceDeleted dynamically removes a service from the registry.
-func (c *Core) handleServiceDeleted(endpoint serTypes.ServiceEndpoint) {
+func (c *Core) handleServiceDeleted(endpoint servicesTypes.ServiceEndpoint) {
 	c.Observability.Logger.Info("Removing service", zap.String("name", endpoint.Name), zap.String("address", endpoint.Address))
 	// Implementation for stopping and unregistering services-library if needed
 }
 
 // handleServiceModified handles updates to an existing service.
-func (c *Core) handleServiceModified(endpoint serTypes.ServiceEndpoint) {
+func (c *Core) handleServiceModified(endpoint servicesTypes.ServiceEndpoint) {
 	c.Observability.Logger.Info("Modifying service", zap.String("name", endpoint.Name), zap.String("address", endpoint.Address))
 	// Implementation for updating services-library dynamically
 }

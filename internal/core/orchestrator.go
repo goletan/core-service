@@ -8,11 +8,8 @@ import (
 
 // orchestrateServices performs initial discovery and setup of services-library.
 func orchestrateServices(ctx context.Context, core *Core) {
-	namespace := "goletan"
-	core.Observability.Logger.Info("Performing initial service discovery...", zap.String("namespace", namespace))
-
 	// Discover services-library
-	endpoints, err := discoverServices(ctx, core, namespace)
+	endpoints, err := discoverServices(ctx, core)
 	if err != nil {
 		core.Observability.Logger.Error("Initial service discovery failed", zap.Error(err))
 		return
@@ -27,12 +24,18 @@ func orchestrateServices(ctx context.Context, core *Core) {
 }
 
 // discoverServices performs a one-time discovery of available services-library in the namespace.
-func discoverServices(ctx context.Context, core *Core, namespace string) ([]servicesTypes.ServiceEndpoint, error) {
+func discoverServices(ctx context.Context, core *Core) ([]servicesTypes.ServiceEndpoint, error) {
 	var endpoints []servicesTypes.ServiceEndpoint
+	filter := &servicesTypes.Filter{
+		Labels: map[string]string{
+			"app":  "goletan",
+			"type": "core",
+		},
+	}
 
 	err := core.Resilience.ExecuteWithRetry(ctx, func() error {
 		var err error
-		endpoints, err = core.Services.Discover(ctx, namespace)
+		endpoints, err = core.Services.Discover(ctx, filter)
 		return err
 	})
 	if err != nil {
