@@ -3,13 +3,11 @@ package main
 import (
 	"context"
 	"github.com/goletan/core-service/internal/core"
-	eventsTypes "github.com/goletan/events-library/shared/types"
-	servicesTypes "github.com/goletan/services-library/shared/types"
 	"go.uber.org/zap"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 )
 
 func main() {
@@ -17,25 +15,24 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	defer shutdownCancel()
 
-	// Set up signal handling for shutdown
-	setupSignalHandler(shutdownCancel)
+	// configures OS signal handling for graceful shutdown.
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signalChan
+		shutdownCancel()
+	}()
 
 	// Set up core-service and services-library
-	newCore, err := core.NewCore(shutdownCtx)
+	newCore, err := core.NewCore()
 	if err != nil || newCore == nil {
-		panic("Failed to create core-service")
+		log.Fatal("Failed to create core service", err)
+		return
 	}
 
-	initializeAndStartServices(shutdownCtx, newCore)
-
-	event := &eventsTypes.Event{
-		Type:    "test_event_types",
-		Payload: "test_event_payload",
-	}
-
-	err = newCore.EventsClient.SendEvent(shutdownCtx, event)
+	err = newCore.Start(shutdownCtx)
 	if err != nil {
-		newCore.Observability.Logger.Error("Failed to send event", zap.Error(err))
+		newCore.Observability.Logger.Fatal("Failed to start core-service", zap.Error(err))
 		return
 	}
 
@@ -43,59 +40,9 @@ func main() {
 	newCore.Observability.Logger.Info("core Service is running...")
 	<-shutdownCtx.Done()
 	newCore.Observability.Logger.Info("core Service shutting down...")
-}
-
-// setupSignalHandler configures OS signal handling for graceful shutdown.
-func setupSignalHandler(cancelFunc context.CancelFunc) {
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-signalChan
-		cancelFunc() // Trigger shutdown
-	}()
-}
-
-// initializeAndStartServices initializes and starts all services-library via the core object.
-func initializeAndStartServices(ctx context.Context, core *core.Core) {
-
-	serviceDiscoveryTimeout := 5 * time.Second
-	discoverCtx, discoverCancel := context.WithTimeout(ctx, serviceDiscoveryTimeout)
-	defer discoverCancel()
-	filter := &servicesTypes.Filter{
-		Labels: map[string]string{
-			"app":  "goletan",
-			"type": "core",
-		},
-	}
-
-	serviceEndpoints, err := core.Services.Discover(discoverCtx, filter)
+	err = newCore.Shutdown(shutdownCtx)
 	if err != nil {
-		core.Observability.Logger.Warn("No services discovered on goletan_services_network", zap.Error(err))
-	} else {
-		for _, endpoint := range serviceEndpoints {
-			core.Observability.Logger.Info("Discovered service",
-				zap.String("name", endpoint.Name),
-				zap.String("address", endpoint.Address))
-			service, err := core.Services.CreateService(endpoint)
-			if err != nil {
-				core.Observability.Logger.Error("Failed to create service", zap.String("name", endpoint.Name), zap.Error(err))
-				continue
-			}
-			err = core.Services.Register(service)
-			if err != nil {
-				core.Observability.Logger.Error("Failed to register service", zap.String("name", service.Name()), zap.Error(err))
-			}
-			core.Observability.Logger.Info("Registered service", zap.String("name", service.Name()))
-		}
-	}
-
-	core.Observability.Logger.Info("Services are initializing...")
-	if err := core.Services.InitializeAll(discoverCtx); err != nil {
-		core.Observability.Logger.Fatal("Failed to initialize services-library", zap.Error(err))
-	}
-
-	core.Observability.Logger.Info("Services are starting...")
-	if err := core.Services.StartAll(discoverCtx); err != nil {
-		core.Observability.Logger.Fatal("Failed to start services-library", zap.Error(err))
+		newCore.Observability.Logger.Error("Failed to shutdown core-service", zap.Error(err))
+		return
 	}
 }

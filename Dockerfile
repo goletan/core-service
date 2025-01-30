@@ -4,13 +4,14 @@ WORKDIR /app
 
 COPY go.work .
 COPY core-service ./core-service
+COPY events-service ./events-service
+
 COPY config-library ./config-library
 COPY logger-library ./logger-library
 COPY observability-library ./observability-library
 COPY resilience-library ./resilience-library
 COPY security-library ./security-library
 COPY services-library ./services-library
-COPY events-library ./events-library
 
 RUN go work sync
 RUN CGO_ENABLED=0 GOOS=linux go build -o core core-service/cmd/core/main.go

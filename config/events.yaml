@@ -1,5 +1,8 @@
 grpc:
-  address: "0.0.0.0:50051"
+  address: "events:50051"
+
+http:
+  address: "events:443"
 
 client:
   strategy: "grpc"

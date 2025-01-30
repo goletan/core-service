@@ -2,14 +2,13 @@ package core
 
 import (
 	"context"
+	"github.com/goletan/core-service/internal/metrics"
+	"github.com/goletan/core-service/internal/orchestration"
 	"github.com/goletan/core-service/internal/types"
-	eventsLib "github.com/goletan/events-library/pkg"
+	events "github.com/goletan/events-service/pkg"
 	observability "github.com/goletan/observability-library/pkg"
-	resilience "github.com/goletan/resilience-library/pkg"
-	resTypes "github.com/goletan/resilience-library/shared/types"
-	services "github.com/goletan/services-library/pkg"
+	servicesLib "github.com/goletan/services-library/pkg"
 	servicesTypes "github.com/goletan/services-library/shared/types"
-	"github.com/sony/gobreaker/v2"
 	"go.uber.org/zap"
 	"log"
 )
@@ -17,74 +16,67 @@ import (
 type Core struct {
 	Config        *types.CoreConfig
 	Observability *observability.Observability
-	Resilience    *resilience.DefaultResilienceService
-	Services      *services.Services
-	EventsClient  *eventsLib.EventsClient
+	Metrics       *metrics.Metrics
+	Orchestrator  *orchestration.Orchestrator
+	EventsClient  *events.EventsClient
 }
 
 // NewCore initializes the core with essential components.
-func NewCore(ctx context.Context) (*Core, error) {
-	obs := initializeObservability()
-	obs.Logger.Info("core Initializing...")
+func NewCore() (*Core, error) {
+	obs, err := observability.NewObserver()
+	if err != nil {
+		log.Fatal("Failed to initialize observability", err)
+	}
+
+	obs.Logger.Info("Core booting...")
 
 	cfg, err := LoadCoreConfig(obs.Logger)
 	if err != nil {
 		return nil, err
 	}
+	obs.Logger.Info("Core configuration loaded")
 
-	res := resilience.NewResilienceService(
-		"core-service",
-		obs,
-		func(err error) bool { return true }, // Retry on all errors
-		&resTypes.CircuitBreakerCallbacks{
-			OnOpen: func(name string, from, to gobreaker.State) {
-				obs.Logger.Warn("Circuit breaker opened", zap.String("name", name))
-			},
-			OnClose: func(name string, from, to gobreaker.State) {
-				obs.Logger.Info("Circuit breaker closed", zap.String("name", name))
-			},
-		},
-	)
-
-	newServices, err := services.NewServices(obs)
+	newServices, err := servicesLib.NewServices(obs)
 	if err != nil {
-		obs.Logger.Error("Failed to initialize services-library", zap.Error(err))
+		obs.Logger.Fatal("Failed to initialize services", zap.Error(err))
 		return nil, err
 	}
+	obs.Logger.Info("Services initialized")
 
-	filter := &servicesTypes.Filter{
-		Labels: map[string]string{
-			"app":  "goletan",
-			"type": "core",
-		},
-	}
-
-	var eventsServiceAddress string
-	serviceEndpoints, err := newServices.Discover(ctx, filter)
-	for _, endpoint := range serviceEndpoints {
-		if endpoint.Name == "goletan_events" {
-			eventsServiceAddress = endpoint.Address + ":50051"
-		}
-	}
-
-	eventsClient, err := eventsLib.NewEventsClient(obs, eventsServiceAddress)
+	newEventsClient, err := events.NewEventsClient(obs)
 	if err != nil {
+		obs.Logger.Fatal("Failed to initialize events client", zap.Error(err))
 		return nil, err
 	}
+	obs.Logger.Info("Events Client initialized")
+
+	orc, err := orchestration.NewOrchestrator(obs, cfg, newServices)
+	if err != nil {
+		obs.Logger.Fatal("Failed to initialize orchestrator", zap.Error(err))
+		return nil, err
+	}
+	obs.Logger.Info("Orchestrator initialized")
+
+	met := metrics.InitMetrics(obs)
+	obs.Logger.Info("Metrics initialized")
 
 	return &Core{
 		Config:        cfg,
 		Observability: obs,
-		Resilience:    res,
-		Services:      newServices,
-		EventsClient:  eventsClient,
+		Metrics:       met,
+		Orchestrator:  orc,
+		EventsClient:  newEventsClient,
 	}, nil
 }
 
 // Start launches the core's core-service components and begins service discovery.
 func (c *Core) Start(ctx context.Context) error {
 	c.Observability.Logger.Info("Starting initial service orchestration...")
-	orchestrateServices(ctx, c)
+	err := c.Orchestrator.Orchestrate(ctx)
+	if err != nil {
+		c.Observability.Logger.Error("Failed to orchestrate services", zap.Error(err))
+		return err
+	}
 
 	c.Observability.Logger.Info("Starting service discovery and event handling...")
 	go c.startServiceWatcher(ctx)
@@ -95,35 +87,29 @@ func (c *Core) Start(ctx context.Context) error {
 // Shutdown gracefully stops the core's components.
 func (c *Core) Shutdown(ctx context.Context) error {
 	c.Observability.Logger.Info("Shutting down Services...")
-	if err := c.Services.StopAll(ctx); err != nil {
-		c.Observability.Logger.Error("Failed to stop services-library", zap.Error(err))
+	if err := c.Orchestrator.Services.StopAll(ctx); err != nil {
+		c.Observability.Logger.Error("Failed to stop services", zap.Error(err))
 	}
 
-	c.Observability.Logger.Info("Shutting down Resilience...")
-	if err := c.Resilience.Shutdown(&ctx); err != nil {
-		c.Observability.Logger.Error("Failed to shut down resilience-library", zap.Error(err))
-		return err
-	}
-
-	c.Observability.Logger.Info("core shut down successfully")
+	c.Observability.Logger.Info("All services shut down gracefully")
 	return nil
 }
 
 // startServiceWatcher listens for service events-service and dynamically updates the service registry.
 func (c *Core) startServiceWatcher(ctx context.Context) {
-	filter := &servicesTypes.Filter{
-		Labels: map[string]string{
-			"app":  "goletan",
-			"type": "core",
-		},
+	if c.Config.Orchestrator.Filter == nil {
+		c.Observability.Logger.Warn("No filter provided for service watcher")
+		return
 	}
 
-	eventCh, err := c.Services.Watch(ctx, filter)
+	filter := &servicesTypes.Filter{Labels: c.Config.Orchestrator.Filter}
+	eventCh, err := c.Orchestrator.Services.Watch(ctx, filter)
 	if err != nil {
 		c.Observability.Logger.Fatal("Failed to start service watcher", zap.Error(err))
 		return
 	}
 
+	c.Observability.Logger.Info("Service watcher started")
 	for {
 		select {
 		case <-ctx.Done():
@@ -137,57 +123,43 @@ func (c *Core) startServiceWatcher(ctx context.Context) {
 
 			switch event.Type {
 			case "ADDED":
-				c.handleServiceAdded(event.Service)
+				c.handleServiceAdded(event.Service, ctx)
 			case "DELETED":
-				c.handleServiceDeleted(event.Service)
+				c.handleServiceDeleted(event.Service, ctx)
 			case "MODIFIED":
-				c.handleServiceModified(event.Service)
+				c.handleServiceModified(event.Service, ctx)
 			}
 		}
 	}
 }
 
 // handleServiceAdded dynamically registers and initializes a new service.
-func (c *Core) handleServiceAdded(endpoint servicesTypes.ServiceEndpoint) {
+func (c *Core) handleServiceAdded(endpoint servicesTypes.ServiceEndpoint, ctx context.Context) {
 	c.Observability.Logger.Info("Adding service", zap.String("name", endpoint.Name), zap.String("address", endpoint.Address))
-	service, err := c.Services.CreateService(endpoint)
+	svc, err := c.Orchestrator.Services.Register(endpoint)
 	if err != nil {
-		c.Observability.Logger.Error("Failed to create service", zap.String("name", endpoint.Name), zap.Error(err))
+		c.Observability.Logger.Error("Failed to register service", zap.String("name", endpoint.Name), zap.Error(err))
 		return
 	}
 
-	if err := c.Services.Register(service); err != nil {
-		c.Observability.Logger.Error("Failed to register service", zap.String("name", service.Name()), zap.Error(err))
+	if err = svc.Initialize(); err != nil {
+		c.Observability.Logger.Error("Failed to initialize service", zap.String("name", svc.Name()), zap.Error(err))
 		return
 	}
 
-	if err := service.Initialize(); err != nil {
-		c.Observability.Logger.Error("Failed to initialize service", zap.String("name", service.Name()), zap.Error(err))
-		return
-	}
-
-	if err := service.Start(); err != nil {
-		c.Observability.Logger.Error("Failed to start service", zap.String("name", service.Name()), zap.Error(err))
+	if err := svc.Start(ctx); err != nil {
+		c.Observability.Logger.Error("Failed to start service", zap.String("name", svc.Name()), zap.Error(err))
 	}
 }
 
 // handleServiceDeleted dynamically removes a service from the registry.
-func (c *Core) handleServiceDeleted(endpoint servicesTypes.ServiceEndpoint) {
+func (c *Core) handleServiceDeleted(endpoint servicesTypes.ServiceEndpoint, ctx context.Context) {
 	c.Observability.Logger.Info("Removing service", zap.String("name", endpoint.Name), zap.String("address", endpoint.Address))
 	// Implementation for stopping and unregistering services-library if needed
 }
 
 // handleServiceModified handles updates to an existing service.
-func (c *Core) handleServiceModified(endpoint servicesTypes.ServiceEndpoint) {
+func (c *Core) handleServiceModified(endpoint servicesTypes.ServiceEndpoint, ctx context.Context) {
 	c.Observability.Logger.Info("Modifying service", zap.String("name", endpoint.Name), zap.String("address", endpoint.Address))
 	// Implementation for updating services-library dynamically
-}
-
-// initializeObservability initializes the observability-library components (logger-library, metrics, tracing).
-func initializeObservability() *observability.Observability {
-	obs, err := observability.NewObserver()
-	if err != nil {
-		log.Fatal("Failed to initialize observability-library", err)
-	}
-	return obs
 }

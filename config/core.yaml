@@ -1,1 +1,24 @@
+# core.yaml - Core Service Configuration
 service_name: "core-service"
+
+orchestrator:
+  # Service discovery filter (label-based selection)
+  filter:
+    app: "goletan"         # Mandatory label filter
+    type: "core"           # Service type filter
+    # environment: "prod"  # Example optional label
+    # region: "eu-west-1"  # Example optional label
+
+  # Orchestration strategy (serial|parallel|hybrid)
+  strategy: "hybrid"
+
+  # Static priority map (overrides dynamic priorities when present)
+  priority_map:
+    events-service: 10       # High priority service
+    core-service: 20
+
+  # Tag name to check for dynamic priority (empty = disabled)
+  priority_tag: "service_priority"
+
+  # Default priority when no other priority is found
+  default_priority: 99
