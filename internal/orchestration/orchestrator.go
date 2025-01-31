@@ -37,8 +37,7 @@ func NewOrchestrator(obs *observability.Observability, cfg *types.CoreConfig, se
 	}, nil
 }
 
-func (o *Orchestrator) Orchestrate(ctx context.Context) error {
-	filter := &servicesTypes.Filter{Labels: o.Config.Orchestrator.Filter}
+func (o *Orchestrator) Orchestrate(ctx context.Context, filter *servicesTypes.Filter) error {
 	endpoints, err := o.Services.Discover(ctx, filter)
 	if err != nil {
 		o.Logger.Error("Failed to discover services", zap.Error(err))

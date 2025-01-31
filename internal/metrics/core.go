@@ -13,7 +13,6 @@ import (
 type Metrics struct{}
 
 var (
-
 	// AppErrorCount is a Prometheus CounterVec that tracks the total count of errors encountered by the application.
 	// It uses labels—type, service, and context—to differentiate error occurrences.
 	AppErrorCount = prometheus.NewCounterVec(
