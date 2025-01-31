@@ -1,14 +1,13 @@
 # core.yaml - Core Service Configuration
 service_name: "core-service"
 
-orchestrator:
+discovery:
   # Service discovery filter (label-based selection)
   filter:
-    app: "goletan"         # Mandatory label filter
-    type: "core"           # Service type filter
-    # environment: "prod"  # Example optional label
-    # region: "eu-west-1"  # Example optional label
+    labels:
+      app: "goletan"         # Mandatory label filter
 
+orchestrator:
   # Orchestration strategy (serial|parallel|hybrid)
   strategy: "hybrid"
 

@@ -5,22 +5,18 @@ import (
 	"github.com/goletan/core-service/internal/metrics"
 	"github.com/goletan/core-service/internal/orchestration"
 	"github.com/goletan/core-service/internal/types"
-	"github.com/goletan/core-service/internal/watcher"
 	events "github.com/goletan/events-service/pkg"
 	observability "github.com/goletan/observability-library/pkg"
-	servicesLib "github.com/goletan/services-library/pkg"
-	servicesTypes "github.com/goletan/services-library/shared/types"
 	"go.uber.org/zap"
 	"log"
 )
 
 type Core struct {
-	Config         *types.CoreConfig
-	Observability  *observability.Observability
-	Metrics        *metrics.Metrics
-	Orchestrator   *orchestration.Orchestrator
-	EventsClient   *events.EventsClient
-	ServiceWatcher *watcher.ServiceWatcher
+	Config        *types.CoreConfig
+	Observability *observability.Observability
+	Metrics       *metrics.Metrics
+	Orchestrator  *orchestration.Orchestrator
+	EventsClient  *events.EventsClient
 }
 
 // NewCore initializes the core with essential components.
@@ -38,13 +34,6 @@ func NewCore() (*Core, error) {
 	}
 	obs.Logger.Info("Core configuration loaded")
 
-	newServices, err := servicesLib.NewServices(obs)
-	if err != nil {
-		obs.Logger.Fatal("Failed to initialize services", zap.Error(err))
-		return nil, err
-	}
-	obs.Logger.Info("Services initialized")
-
 	newEventsClient, err := events.NewEventsClient(obs)
 	if err != nil {
 		obs.Logger.Fatal("Failed to initialize events client", zap.Error(err))
@@ -52,7 +41,7 @@ func NewCore() (*Core, error) {
 	}
 	obs.Logger.Info("Events Client initialized")
 
-	orc, err := orchestration.NewOrchestrator(obs, cfg, newServices)
+	orc, err := orchestration.NewOrchestrator(obs, cfg)
 	if err != nil {
 		obs.Logger.Fatal("Failed to initialize orchestrator", zap.Error(err))
 		return nil, err
@@ -62,31 +51,23 @@ func NewCore() (*Core, error) {
 	met := metrics.InitMetrics(obs)
 	obs.Logger.Info("Metrics initialized")
 
-	newServiceWatcher := watcher.NewServiceWatcher(obs.Logger, newServices)
-
 	return &Core{
-		Config:         cfg,
-		Observability:  obs,
-		Metrics:        met,
-		Orchestrator:   orc,
-		EventsClient:   newEventsClient,
-		ServiceWatcher: newServiceWatcher,
+		Config:        cfg,
+		Observability: obs,
+		Metrics:       met,
+		Orchestrator:  orc,
+		EventsClient:  newEventsClient,
 	}, nil
 }
 
 // Start launches the core's core-service components and begins service discovery.
 func (c *Core) Start(ctx context.Context) error {
-	filter := &servicesTypes.Filter{Labels: c.Config.Orchestrator.Filter}
-
 	c.Observability.Logger.Info("Starting initial service orchestration...")
-	err := c.Orchestrator.Orchestrate(ctx, filter)
+	err := c.Orchestrator.Orchestrate(ctx)
 	if err != nil {
 		c.Observability.Logger.Error("Failed to orchestrate services", zap.Error(err))
 		return err
 	}
-
-	c.Observability.Logger.Info("Starting service discovery and event handling...")
-	go c.ServiceWatcher.Start(ctx, filter)
 
 	return nil
 }
