@@ -22,8 +22,6 @@ func NewSerialStrategy(logger *logger.ZapLogger, services *services.Services) *S
 
 func (s *SerialStrategy) Orchestrate(ctx context.Context, endpoints []servicesTypes.ServiceEndpoint) error {
 	for _, endpoint := range endpoints {
-		s.Logger.Info("Orchestrating service in serial mode", zap.String("name", endpoint.Name))
-
 		service, err := s.Services.Register(endpoint)
 		if err != nil {
 			return err

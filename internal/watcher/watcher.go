@@ -35,7 +35,6 @@ func (sw *ServiceWatcher) Start(ctx context.Context, filter *servicesTypes.Filte
 		return
 	}
 
-	sw.Logger.Info("Service watcher started")
 	for {
 		select {
 		case <-ctx.Done():
@@ -46,7 +45,7 @@ func (sw *ServiceWatcher) Start(ctx context.Context, filter *servicesTypes.Filte
 				sw.Logger.Warn("Service watcher channel closed")
 				return
 			}
-
+			sw.Logger.Info("Received service event", zap.String("type", event.Type), zap.String("name", event.Service.Name))
 			sw.HandleEvent(event, ctx)
 		}
 	}
@@ -68,8 +67,6 @@ func (sw *ServiceWatcher) HandleEvent(event servicesTypes.ServiceEvent, ctx cont
 
 // handleServiceAdded dynamically registers and starts new services.
 func (sw *ServiceWatcher) handleServiceAdded(endpoint servicesTypes.ServiceEndpoint, ctx context.Context) {
-	sw.Logger.Info("Adding service", zap.String("name", endpoint.Name), zap.String("address", endpoint.Address))
-
 	svc, err := sw.Services.Register(endpoint)
 	if err != nil {
 		sw.Logger.Error("Failed to register service", zap.String("name", endpoint.Name), zap.Error(err))

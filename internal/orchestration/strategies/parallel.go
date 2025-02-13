@@ -37,7 +37,6 @@ func (p *ParallelStrategy) Orchestrate(ctx context.Context, endpoints []services
 				return
 			}
 
-			p.Logger.Info("Service found in services-library", zap.String("name", service.Name()))
 			err = service.Initialize()
 			if err != nil {
 				errCh <- err

@@ -29,7 +29,6 @@ func NewOrchestrator(obs *observability.Observability, cfg *types.CoreConfig) (*
 		obs.Logger.Fatal("Failed to initialize services", zap.Error(err))
 		return nil, err
 	}
-	obs.Logger.Info("Services initialized")
 
 	strategy, err := strategies.NewStrategy(
 		obs.Logger,
@@ -37,9 +36,9 @@ func NewOrchestrator(obs *observability.Observability, cfg *types.CoreConfig) (*
 		cfg.Orchestrator.Strategy,
 	)
 	if err != nil {
+		obs.Logger.Fatal("Failed to initialize orchestration strategy", zap.Error(err))
 		return nil, err
 	}
-	obs.Logger.Info("Orchestration strategy initialized")
 
 	newServiceWatcher := watcher.NewServiceWatcher(obs.Logger, newServices)
 	healthMonitor := health.NewMonitor(obs.Logger, newServices, 10*time.Second)
@@ -60,6 +59,8 @@ func (o *Orchestrator) Orchestrate(ctx context.Context) error {
 		Tags:   o.Config.Discovery.Filter.Tags,
 	}
 
+	o.Logger.Info("Starting service orchestration...", zap.Any("filter", filter))
+
 	endpoints, err := o.Services.Discover(ctx, filter)
 	if err != nil {
 		o.Logger.Error("Failed to discover services", zap.Error(err))
@@ -70,12 +71,8 @@ func (o *Orchestrator) Orchestrate(ctx context.Context) error {
 		o.Logger.Error("Orchestration failed", zap.Error(err))
 		return err
 	}
-	o.Logger.Info("Orchestration completed successfully")
 
-	o.Logger.Info("Starting service discovery and event handling...")
 	go o.ServiceWatcher.Start(ctx, filter)
-
-	o.Logger.Info("Starting Health Monitor...")
 	go o.HealthMonitor.Start(ctx)
 
 	return nil

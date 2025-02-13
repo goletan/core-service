@@ -26,35 +26,27 @@ func NewCore() (*Core, error) {
 		log.Fatal("Failed to initialize observability", err)
 	}
 
-	obs.Logger.Info("Core booting...")
-
 	cfg, err := LoadCoreConfig(obs.Logger)
 	if err != nil {
 		return nil, err
 	}
-	obs.Logger.Info("Core configuration loaded")
 
 	newEventsClient, err := events.NewEventsClient(obs)
 	if err != nil {
 		obs.Logger.Fatal("Failed to initialize events client", zap.Error(err))
 		return nil, err
 	}
-	obs.Logger.Info("Events Client initialized")
 
 	orc, err := orchestration.NewOrchestrator(obs, cfg)
 	if err != nil {
 		obs.Logger.Fatal("Failed to initialize orchestrator", zap.Error(err))
 		return nil, err
 	}
-	obs.Logger.Info("Orchestrator initialized")
-
-	met := metrics.InitMetrics(obs)
-	obs.Logger.Info("Metrics initialized")
 
 	return &Core{
 		Config:        cfg,
 		Observability: obs,
-		Metrics:       met,
+		Metrics:       metrics.InitMetrics(obs),
 		Orchestrator:  orc,
 		EventsClient:  newEventsClient,
 	}, nil

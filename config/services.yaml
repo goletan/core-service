@@ -1,7 +1,7 @@
 discovery:
   strategies:
     - name: kubernetes
-      namespace: goletan-services
+      namespace: goletan
     - name: docker
-      network: goletan_services_network
+      network: goletan_services
   default_strategy: kubernetes

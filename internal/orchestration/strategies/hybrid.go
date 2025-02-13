@@ -6,7 +6,6 @@ import (
 	logger "github.com/goletan/logger-library/pkg"
 	services "github.com/goletan/services-library/pkg"
 	"github.com/goletan/services-library/shared/types"
-	"go.uber.org/zap"
 	"strconv"
 )
 
@@ -51,19 +50,16 @@ func (h *HybridStrategy) Orchestrate(ctx context.Context, endpoints []types.Serv
 		if err != nil {
 			return err
 		}
-		h.Logger.Info("Service found in services-library", zap.String("name", service.Name()))
 
 		err = service.Initialize()
 		if err != nil {
 			return err
 		}
-		h.Logger.Info("Service initialized", zap.String("name", service.Name()))
 
 		err = service.Start(ctx)
 		if err != nil {
 			return err
 		}
-		h.Logger.Info("Service started", zap.String("name", service.Name()))
 	}
 	return nil
 }

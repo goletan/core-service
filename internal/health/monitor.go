@@ -44,14 +44,11 @@ func (m *Monitor) Start(ctx context.Context) {
 
 // checkAndRecoverServices checks service health and applies recovery if needed.
 func (m *Monitor) checkAndRecoverServices(ctx context.Context) {
-	m.Logger.Info("Performing health checks on services...")
 	for _, service := range m.Services.List() {
 		status := m.checkServiceHealth(ctx, service)
-		m.Logger.Info("Service health check result", zap.String("name", service.Name()), zap.String("status", status))
 
 		switch status {
 		case "HEALTHY":
-			m.Logger.Info("Service is healthy", zap.String("name", service.Name()))
 		case "DEGRADED":
 			m.Logger.Warn("Service is degraded, considering restart", zap.String("name", service.Name()))
 			m.attemptRestart(ctx, service)
