@@ -59,8 +59,6 @@ func (o *Orchestrator) Orchestrate(ctx context.Context) error {
 		Tags:   o.Config.Discovery.Filter.Tags,
 	}
 
-	o.Logger.Info("Starting service orchestration...", zap.Any("filter", filter))
-
 	endpoints, err := o.Services.Discover(ctx, filter)
 	if err != nil {
 		o.Logger.Error("Failed to discover services", zap.Error(err))

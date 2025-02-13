@@ -5,7 +5,7 @@ discovery:
   # Service discovery filter (label-based selection)
   filter:
     labels:
-      - app.goletan.discover: "true"
+      goletan/discover: "true"
 
 orchestrator:
   # Orchestration strategy (serial|parallel|hybrid)
