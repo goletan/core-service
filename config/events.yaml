@@ -1,8 +1,8 @@
 grpc:
-  address: "events:50051"
+  address: "events.goletan.svc.cluster.local:50051"
 
 http:
-  address: "events:443"
+  address: "events.goletan.svc.cluster.local:443"
 
 client:
   strategy: "grpc"
